@@ -31,6 +31,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Unity.2D.Tilemap.Extras", "
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Unity.InternalAPIEngineBridge.001", "Unity.InternalAPIEngineBridge.001.csproj", "{6AFF1BEA-42C2-E8F3-81E1-58181DA38AC4}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Assembly-CSharp", "Assembly-CSharp.csproj", "{880FD9EE-7AF5-E621-8435-93DE9100EDC8}"
+EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Unity.PlasticSCM.Editor", "Unity.PlasticSCM.Editor.csproj", "{E36CE824-D123-526D-C32C-185D0F437040}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Unity.VisualScripting.Core.Editor", "Unity.VisualScripting.Core.Editor.csproj", "{BC49B5FC-3803-2A59-1D1C-F2D897943D60}"
@@ -153,6 +155,10 @@ Global
 		{6AFF1BEA-42C2-E8F3-81E1-58181DA38AC4}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{6AFF1BEA-42C2-E8F3-81E1-58181DA38AC4}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{6AFF1BEA-42C2-E8F3-81E1-58181DA38AC4}.Release|Any CPU.Build.0 = Release|Any CPU
+		{880FD9EE-7AF5-E621-8435-93DE9100EDC8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{880FD9EE-7AF5-E621-8435-93DE9100EDC8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{880FD9EE-7AF5-E621-8435-93DE9100EDC8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{880FD9EE-7AF5-E621-8435-93DE9100EDC8}.Release|Any CPU.Build.0 = Release|Any CPU
 		{E36CE824-D123-526D-C32C-185D0F437040}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{E36CE824-D123-526D-C32C-185D0F437040}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{E36CE824-D123-526D-C32C-185D0F437040}.Release|Any CPU.ActiveCfg = Release|Any CPU
