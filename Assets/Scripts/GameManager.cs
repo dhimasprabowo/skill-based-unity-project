@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
+using System.Linq;
 
 public class GameManager : MonoBehaviour
 {
@@ -30,6 +31,9 @@ public class GameManager : MonoBehaviour
 	[Header("UI")]
 	public TMP_Text scoreText;
 	public TMP_Text comboText;
+    public Button restartButton;
+    public GameObject levelCompletePanel;
+    public TMP_Text levelCompleteScoreText;
 
 	public bool CanInteract { get; private set; }
 	public int Score { get; private set; }
@@ -52,7 +56,10 @@ public class GameManager : MonoBehaviour
 	void OnValidate()
 	{
 		if ((gridRows * gridColumns) % 2 != 0)
+		{
+			Debug.LogError("Grid is not even, auto fixed column to make the grid even!");
 			gridColumns += 1;
+		}
 	}
 
 	void Start()
@@ -61,7 +68,25 @@ public class GameManager : MonoBehaviour
 		Combo = 0;
 		UpdateUI();
 
+		if (restartButton != null)
+		{
+			restartButton.onClick.AddListener(RestartGame);
+		}
+
+		if (levelCompletePanel != null)
+		{
+			levelCompletePanel.SetActive(false);
+		}
+
 		StartCoroutine(SetupLayoutAndStartGame());
+	}
+
+	void OnDestroy()
+	{
+		if (restartButton != null)
+		{
+			restartButton.onClick.RemoveListener(RestartGame);
+		}
 	}
 
 	IEnumerator SetupLayoutAndStartGame()
@@ -225,9 +250,59 @@ public class GameManager : MonoBehaviour
 			}
 
 			UpdateUI();
+
+			// If every card is matched, show level complete UI
+			if (allCards.Count > 0 && allCards.All(c => c.isMatched))
+			{
+				ShowLevelComplete();
+			}
 		}
 
 		isProcessingMatch = false;
+	}
+
+	// ================= RESTART =================
+
+	public void RestartGame()
+	{
+		// Stop any running coroutines and clear state
+		StopAllCoroutines();
+		matchQueue.Clear();
+		isProcessingMatch = false;
+		CanInteract = false;
+
+		// Destroy all spawned cards
+		foreach (var card in allCards.ToList())
+		{
+			if (card != null)
+				Destroy(card.gameObject);
+		}
+		allCards.Clear();
+
+		// Reset score/combo and UI
+		Score = 0;
+		Combo = 0;
+		UpdateUI();
+
+		// Restart setup
+		StartCoroutine(SetupLayoutAndStartGame());
+
+		// Hide level complete UI if present
+		if (levelCompletePanel != null)
+			levelCompletePanel.SetActive(false);
+	}
+
+	void ShowLevelComplete()
+	{
+		// prevent further interaction
+		CanInteract = false;
+		StopAllCoroutines();
+
+		if (levelCompletePanel != null)
+			levelCompletePanel.SetActive(true);
+
+		if (levelCompleteScoreText != null)
+			levelCompleteScoreText.text = Score.ToString();
 	}
 
 	// ================= UTIL =================
@@ -244,6 +319,6 @@ public class GameManager : MonoBehaviour
 	void UpdateUI()
 	{
 		if (scoreText) scoreText.text = Score.ToString();
-		if (comboText) comboText.text = Combo > 0 ? $"x{Combo}" : "";
+		if (comboText) comboText.text = Combo > 1 ? $"Combo x{Combo}!" : "";
 	}
 }
