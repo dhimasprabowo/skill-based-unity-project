@@ -31,9 +31,14 @@ public class GameManager : MonoBehaviour
 	[Header("UI")]
 	public TMP_Text scoreText;
 	public TMP_Text comboText;
-    public Button restartButton;
-    public GameObject levelCompletePanel;
-    public TMP_Text levelCompleteScoreText;
+	public Button restartButton;
+	public GameObject levelCompletePanel;
+	public TMP_Text levelCompleteScoreText;
+
+	[Header("Load Confirmation UI")]
+	public GameObject loadConfirmPanel;
+	public Button loadButton;
+	public Button newGameButton;
 
 	public bool CanInteract { get; private set; }
 	public int Score { get; private set; }
@@ -42,6 +47,8 @@ public class GameManager : MonoBehaviour
 	private Queue<ItemController> matchQueue = new Queue<ItemController>();
 	private bool isProcessingMatch;
 	private readonly List<ItemController> allCards = new List<ItemController>();
+
+	private SaveData pendingSave;
 
 	int TotalCards => gridRows * gridColumns;
 	int MatchCount => TotalCards / 2;
@@ -64,29 +71,92 @@ public class GameManager : MonoBehaviour
 
 	void Start()
 	{
-		Score = 0;
-		Combo = 0;
-		UpdateUI();
-
-		if (restartButton != null)
-		{
+		if (restartButton)
 			restartButton.onClick.AddListener(RestartGame);
-		}
 
-		if (levelCompletePanel != null)
-		{
+		if (loadButton)
+			loadButton.onClick.AddListener(OnLoadConfirmed);
+
+		if (newGameButton)
+			newGameButton.onClick.AddListener(OnNewGameConfirmed);
+
+		if (levelCompletePanel)
 			levelCompletePanel.SetActive(false);
-		}
 
-		StartCoroutine(SetupLayoutAndStartGame());
+		if (loadConfirmPanel)
+			loadConfirmPanel.SetActive(false);
+
+		SaveData save = SaveSystem.Load();
+
+		if (save != null)
+		{
+			if (save.gridRows != gridRows || save.gridColumns != gridColumns)
+			{
+				Debug.LogError("Grid size mismatch. Save file deleted.");
+				SaveSystem.DeleteSave();
+				StartNewGame();
+			}
+			else
+			{
+				// Valid save → wait for player choice
+				pendingSave = save;
+				loadConfirmPanel.SetActive(true);
+				CanInteract = false;
+			}
+		}
+		else
+		{
+			StartNewGame();
+		}
 	}
 
 	void OnDestroy()
 	{
-		if (restartButton != null)
-		{
+		if (restartButton)
 			restartButton.onClick.RemoveListener(RestartGame);
-		}
+	}
+
+	void OnApplicationQuit()
+	{
+		SaveGame();
+	}
+
+	// ================= LOAD CONFIRM =================
+
+	void OnLoadConfirmed()
+	{
+		loadConfirmPanel.SetActive(false);
+		LoadGame(pendingSave);
+		pendingSave = null;
+	}
+
+	void OnNewGameConfirmed()
+	{
+		loadConfirmPanel.SetActive(false);
+		SaveSystem.DeleteSave();
+		StartNewGame();
+		pendingSave = null;
+	}
+
+	// ================= START / LOAD =================
+
+	void StartNewGame()
+	{
+		Score = 0;
+		Combo = 0;
+		UpdateUI();
+		StartCoroutine(SetupLayoutAndStartGame());
+	}
+
+	void LoadGame(SaveData data)
+	{
+		if (data == null)
+			return;
+
+		Score = data.score;
+		Combo = 0;
+		UpdateUI();
+		StartCoroutine(LoadRoutine(data));
 	}
 
 	IEnumerator SetupLayoutAndStartGame()
@@ -99,6 +169,36 @@ public class GameManager : MonoBehaviour
 		StartCoroutine(PreviewSequence());
 	}
 
+	IEnumerator LoadRoutine(SaveData data)
+	{
+		yield return null;
+
+		SetupGridConstraint();
+		FitGridToContainer();
+
+		List<CardData> sortedCards = data.cards
+			.OrderBy(c => c.siblingIndex)
+			.ToList();
+
+		foreach (var cd in sortedCards)
+		{
+			ItemController card = Instantiate(cardPrefab, gridLayout.transform);
+
+			Sprite front = cardFrontSprites
+				.First(s => s.GetInstanceID() == cd.matchID);
+
+			card.frontSprite = front;
+			card.backSprite = cardBack;
+			card.itemID = cd.matchID;
+			card.isMatched = cd.isMatched;
+
+			card.ForceFlip(cd.isMatched);
+			allCards.Add(card);
+		}
+
+		CanInteract = true;
+	}
+
 	// ================= GRID =================
 
 	void SetupGridConstraint()
@@ -109,40 +209,24 @@ public class GameManager : MonoBehaviour
 
 	void FitGridToContainer()
 	{
-		Rect containerRect = gameContainer.rect;
-
-		int rows = gridRows;
-		int columns = gridColumns;
+		Rect rect = gameContainer.rect;
 
 		RectOffset padding = gridLayout.padding;
 		Vector2 spacing = gridLayout.spacing;
 
-		float totalSpacingY = spacing.y * (rows - 1);
-
-		float availableHeight =
-			containerRect.height -
-			padding.top -
-			padding.bottom -
-			totalSpacingY;
-
-		float cellHeight = availableHeight / rows;
+		float spacingY = spacing.y * (gridRows - 1);
+		float availableHeight = rect.height - padding.top - padding.bottom - spacingY;
+		float cellHeight = availableHeight / gridRows;
 
 		float aspect = 3.5f / 4f;
 		float cellWidth = cellHeight * aspect;
 
-		float totalSpacingX = spacing.x * (columns - 1);
+		float spacingX = spacing.x * (gridColumns - 1);
+		float availableWidth = rect.width - padding.left - padding.right - spacingX;
 
-		float availableWidth =
-			containerRect.width -
-			padding.left -
-			padding.right -
-			totalSpacingX;
-
-		float totalGridWidth = cellWidth * columns;
-
-		if (totalGridWidth > availableWidth)
+		if (cellWidth * gridColumns > availableWidth)
 		{
-			cellWidth = availableWidth / columns;
+			cellWidth = availableWidth / gridColumns;
 			cellHeight = cellWidth / aspect;
 		}
 
@@ -157,8 +241,6 @@ public class GameManager : MonoBehaviour
 
 	void SpawnCards()
 	{
-		int totalCards = TotalCards;
-
 		if (cardFrontSprites.Count < MatchCount)
 		{
 			Debug.LogError("Not enough card front sprites!");
@@ -169,7 +251,6 @@ public class GameManager : MonoBehaviour
 		Shuffle(pool);
 
 		List<Sprite> spawnSprites = new List<Sprite>();
-
 		for (int i = 0; i < MatchCount; i++)
 		{
 			spawnSprites.Add(pool[i]);
@@ -250,59 +331,91 @@ public class GameManager : MonoBehaviour
 			}
 
 			UpdateUI();
+			SaveGame();
 
-			// If every card is matched, show level complete UI
-			if (allCards.Count > 0 && allCards.All(c => c.isMatched))
-			{
+			if (allCards.All(c => c.isMatched))
 				ShowLevelComplete();
-			}
 		}
 
 		isProcessingMatch = false;
 	}
+
+	// ================= SAVE =================
+
+	public void SaveGame()
+	{
+		if (allCards.Count == 0)
+			return;
+
+		// Do not save unless there is real progress
+		if (!allCards.Any(c => c.isMatched))
+			return;
+
+		SaveData data = new SaveData
+		{
+			score = Score,
+			gridRows = gridRows,
+			gridColumns = gridColumns
+		};
+
+		foreach (var card in allCards)
+		{
+			data.cards.Add(new CardData
+			{
+				matchID = card.itemID,
+				siblingIndex = card.transform.GetSiblingIndex(),
+				isMatched = card.isMatched
+			});
+		}
+
+		SaveSystem.Save(data);
+	}
+
 
 	// ================= RESTART =================
 
 	public void RestartGame()
 	{
-		// Stop any running coroutines and clear state
 		StopAllCoroutines();
 		matchQueue.Clear();
 		isProcessingMatch = false;
 		CanInteract = false;
 
-		// Destroy all spawned cards
 		foreach (var card in allCards.ToList())
-		{
-			if (card != null)
-				Destroy(card.gameObject);
-		}
+			Destroy(card.gameObject);
+
 		allCards.Clear();
 
-		// Reset score/combo and UI
+		SaveSystem.DeleteSave();
+
 		Score = 0;
 		Combo = 0;
 		UpdateUI();
 
-		// Restart setup
 		StartCoroutine(SetupLayoutAndStartGame());
 
-		// Hide level complete UI if present
-		if (levelCompletePanel != null)
+		if (levelCompletePanel)
 			levelCompletePanel.SetActive(false);
 	}
 
+	// ================= UI =================
+
 	void ShowLevelComplete()
 	{
-		// prevent further interaction
 		CanInteract = false;
 		StopAllCoroutines();
 
-		if (levelCompletePanel != null)
+		if (levelCompletePanel)
 			levelCompletePanel.SetActive(true);
 
-		if (levelCompleteScoreText != null)
+		if (levelCompleteScoreText)
 			levelCompleteScoreText.text = Score.ToString();
+	}
+
+	void UpdateUI()
+	{
+		if (scoreText) scoreText.text = Score.ToString();
+		if (comboText) comboText.text = Combo > 1 ? $"Combo x{Combo}!" : "";
 	}
 
 	// ================= UTIL =================
@@ -314,11 +427,5 @@ public class GameManager : MonoBehaviour
 			int r = Random.Range(i, list.Count);
 			(list[i], list[r]) = (list[r], list[i]);
 		}
-	}
-
-	void UpdateUI()
-	{
-		if (scoreText) scoreText.text = Score.ToString();
-		if (comboText) comboText.text = Combo > 1 ? $"Combo x{Combo}!" : "";
 	}
 }
