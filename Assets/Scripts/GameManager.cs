@@ -35,10 +35,8 @@ public class GameManager : MonoBehaviour
 	public GameObject levelCompletePanel;
 	public TMP_Text levelCompleteScoreText;
 
-	[Header("Load Confirmation UI")]
-	public GameObject loadConfirmPanel;
-	public Button loadButton;
-	public Button newGameButton;
+	[Header("Popup")]
+	public ConfirmPopup confirmPopup;
 
 	public bool CanInteract { get; private set; }
 	public int Score { get; private set; }
@@ -72,19 +70,17 @@ public class GameManager : MonoBehaviour
 	void Start()
 	{
 		if (restartButton)
-			restartButton.onClick.AddListener(RestartGame);
-
-		if (loadButton)
-			loadButton.onClick.AddListener(OnLoadConfirmed);
-
-		if (newGameButton)
-			newGameButton.onClick.AddListener(OnNewGameConfirmed);
+			restartButton.onClick.AddListener(() =>
+			{
+				confirmPopup.Show(
+					"Are you sure want to restart?",
+					() => RestartGame(),
+					() => { confirmPopup.Hide(); }
+				);
+			});
 
 		if (levelCompletePanel)
 			levelCompletePanel.SetActive(false);
-
-		if (loadConfirmPanel)
-			loadConfirmPanel.SetActive(false);
 
 		SaveData save = SaveSystem.Load();
 
@@ -92,16 +88,31 @@ public class GameManager : MonoBehaviour
 		{
 			if (save.gridRows != gridRows || save.gridColumns != gridColumns)
 			{
-				Debug.LogError("Grid size mismatch. Save file deleted.");
-				SaveSystem.DeleteSave();
-				StartNewGame();
+				confirmPopup.Show(
+					"Grid size mismatch. Save file deleted.",
+					() =>
+					{
+						SaveSystem.DeleteSave();
+						StartNewGame();
+					},
+					null,
+					"Okay"
+				);
+
 			}
 			else
 			{
-				// Valid save → wait for player choice
+				// Valid save → ask player
 				pendingSave = save;
-				loadConfirmPanel.SetActive(true);
 				CanInteract = false;
+
+				confirmPopup.Show(
+					"Saved data found, load previous progress?",
+					OnLoadConfirmed,
+					OnNewGameConfirmed,
+					"Load",
+					"New Game"
+				);
 			}
 		}
 		else
@@ -113,7 +124,7 @@ public class GameManager : MonoBehaviour
 	void OnDestroy()
 	{
 		if (restartButton)
-			restartButton.onClick.RemoveListener(RestartGame);
+			restartButton.onClick.RemoveAllListeners();
 	}
 
 	void OnApplicationQuit()
@@ -121,18 +132,16 @@ public class GameManager : MonoBehaviour
 		SaveGame();
 	}
 
-	// ================= LOAD CONFIRM =================
+	// ================= POPUP CALLBACKS =================
 
 	void OnLoadConfirmed()
 	{
-		loadConfirmPanel.SetActive(false);
 		LoadGame(pendingSave);
 		pendingSave = null;
 	}
 
 	void OnNewGameConfirmed()
 	{
-		loadConfirmPanel.SetActive(false);
 		SaveSystem.DeleteSave();
 		StartNewGame();
 		pendingSave = null;
@@ -347,7 +356,6 @@ public class GameManager : MonoBehaviour
 		if (allCards.Count == 0)
 			return;
 
-		// Do not save unless there is real progress
 		if (!allCards.Any(c => c.isMatched))
 			return;
 
@@ -370,7 +378,6 @@ public class GameManager : MonoBehaviour
 
 		SaveSystem.Save(data);
 	}
-
 
 	// ================= RESTART =================
 
