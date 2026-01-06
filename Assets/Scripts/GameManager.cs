@@ -284,6 +284,9 @@ public class GameManager : MonoBehaviour
 	{
 		CanInteract = false;
 
+		// Mute flip sounds during mass flip
+		SoundManager.Instance.allowFlipSound = false;
+
 		foreach (var card in allCards)
 			card.ForceFlip(true);
 
@@ -292,8 +295,12 @@ public class GameManager : MonoBehaviour
 		foreach (var card in allCards)
 			card.Flip();
 
+		// Re-enable flip sounds
+		SoundManager.Instance.allowFlipSound = true;
+
 		CanInteract = true;
 	}
+
 
 	// ================= INPUT =================
 
@@ -331,19 +338,27 @@ public class GameManager : MonoBehaviour
 
 				Combo++;
 				Score += baseMatchScore * Combo;
+
+				SoundManager.Instance?.PlayMatchSuccess();
 			}
 			else
 			{
 				Combo = 0;
 				a.Flip();
 				b.Flip();
+
+				SoundManager.Instance?.PlayMatchFail();
 			}
 
 			UpdateUI();
 			SaveGame();
 
 			if (allCards.All(c => c.isMatched))
+			{
 				ShowLevelComplete();
+
+				SoundManager.Instance?.PlayGameComplete();
+			}
 		}
 
 		isProcessingMatch = false;

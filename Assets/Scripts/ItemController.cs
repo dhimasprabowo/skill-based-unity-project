@@ -48,6 +48,7 @@ public class ItemController : MonoBehaviour, IPointerClickHandler
 	public void Flip()
 	{
 		if (isAnimating) return;
+
 		StartCoroutine(FlipRoutine(!isFlipped));
 	}
 
@@ -66,6 +67,10 @@ public class ItemController : MonoBehaviour, IPointerClickHandler
 
 		float half = flipDuration / 2f;
 		float t = 0f;
+
+		// only play sound when flipping to front
+		if(cardImage.sprite == backSprite)
+			SoundManager.Instance?.PlayFlip();
 
 		// shrink visual only
 		while (t < half)
