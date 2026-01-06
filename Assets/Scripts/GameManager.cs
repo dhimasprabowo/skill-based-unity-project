@@ -35,6 +35,11 @@ public class GameManager : MonoBehaviour
 	public GameObject levelCompletePanel;
 	public TMP_Text levelCompleteScoreText;
 
+	[Header("Preview UI")]
+	public GameObject previewUI;
+	public Image previewFillImage;
+
+
 	[Header("Popup")]
 	public ConfirmPopup confirmPopup;
 
@@ -81,6 +86,9 @@ public class GameManager : MonoBehaviour
 
 		if (levelCompletePanel)
 			levelCompletePanel.SetActive(false);
+
+		if (previewUI)
+			previewUI.SetActive(false);
 
 		SaveData save = SaveSystem.Load();
 
@@ -284,23 +292,48 @@ public class GameManager : MonoBehaviour
 	{
 		CanInteract = false;
 
-		// Mute flip sounds during mass flip
-		SoundManager.Instance.allowFlipSound = false;
+		// Mute flip sounds during preview
+		if (SoundManager.Instance)
+			SoundManager.Instance.allowFlipSound = false;
 
+		// Show preview UI only if delay > 0
+		if (previewUI && previewDelay > 0f)
+		{
+			previewUI.SetActive(true);
+			if (previewFillImage)
+				previewFillImage.fillAmount = 0f;
+		}
+
+		// Show all cards
 		foreach (var card in allCards)
 			card.ForceFlip(true);
 
-		yield return new WaitForSeconds(previewDelay);
+		float elapsed = 0f;
 
+		while (elapsed < previewDelay)
+		{
+			elapsed += Time.deltaTime;
+
+			if (previewFillImage)
+				previewFillImage.fillAmount = 1-Mathf.Clamp01(elapsed / previewDelay);
+
+			yield return null;
+		}
+
+		// Hide preview UI
+		if (previewUI)
+			previewUI.SetActive(false);
+
+		// Flip back cards
 		foreach (var card in allCards)
 			card.Flip();
 
 		// Re-enable flip sounds
-		SoundManager.Instance.allowFlipSound = true;
+		if (SoundManager.Instance)
+			SoundManager.Instance.allowFlipSound = true;
 
 		CanInteract = true;
 	}
-
 
 	// ================= INPUT =================
 
